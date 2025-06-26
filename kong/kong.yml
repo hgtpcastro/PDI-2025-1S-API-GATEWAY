@@ -1,0 +1,50 @@
+_format_version: "3.0"
+services:
+  - name: product-service
+    url: http://api:8080
+    host: localhost
+    routes:
+      - name: products-route
+        paths:
+          - /products
+        strip_path: false
+        plugins:
+          - name: key-auth
+            config:
+              key_names:
+                - apikey
+          - name: rate-limiting
+            config:
+              minute: 5
+              policy: local
+          - name: proxy-cache
+            config:
+              cache_ttl: 60
+              strategy: memory
+      - name: categories-route
+        paths:
+          - /categories
+        strip_path: false
+        plugins:
+          - name: request-transformer
+            config:
+              add:
+                headers:
+                  - "X-Transformed-By: Kong"
+          - name: key-auth
+            config:
+              key_names:
+                - apikey
+          - name: rate-limiting
+            config:
+              minute: 5
+              policy: local
+          - name: proxy-cache
+            config:
+              cache_ttl: 60
+              strategy: memory              
+
+consumers:
+  - username: demo-user
+    keyauth_credentials:
+      - key: demo-key-123

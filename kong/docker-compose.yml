@@ -1,0 +1,104 @@
+networks:
+  kong-net:
+    driver: bridge
+
+services:
+  kong-database:
+    image: postgres:13
+    networks:
+      - kong-net
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_DB: kong
+      POSTGRES_PASSWORD: kongpass
+    volumes:
+      - kong-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "kong"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api-database:
+    image: postgres:13
+    networks:
+      - kong-net
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: apiuser
+      POSTGRES_DB: apidb
+      POSTGRES_PASSWORD: apipass
+    volumes:
+      - api-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "apiuser"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  kong:
+    image: kong:3.4
+    networks:
+      - kong-net
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kongpass
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      KONG_ADMIN_GUI_URL: http://localhost:8002
+      KONG_LOG_LEVEL: debug
+    ports:
+      - "${KONG_PROXY_PORT:-8000}:8000"  # Porta parametrizada
+      - "8001:8001"  # Admin API
+      - "8002:8002"  # Admin GUI
+    depends_on:
+      kong-database:
+        condition: service_healthy
+    volumes:
+      - ./kong.yml:/kong/declarative/kong.yml
+      - ./kong.conf:/kong/kong.conf
+    command: >
+      sh -c "kong migrations bootstrap &&
+             kong config db_import /kong/declarative/kong.yml -c /kong/kong.conf --v &&
+             kong start -c /kong/kong.conf"
+
+  api:
+    image: product-api:latest
+    networks:
+      - kong-net
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgresql://apiuser:apipass@api-database:5432/apidb?sslmode=disable
+    ports:
+      - "8080:8080"
+    depends_on:
+      api-database:
+        condition: service_healthy
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    networks:
+      - kong-net
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - kong-database
+      - api-database
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+
+volumes:
+  kong-data:
+  api-data:
+  pgadmin-data:

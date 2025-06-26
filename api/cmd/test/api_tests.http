@@ -1,0 +1,42 @@
+# Arquivo de testes para Rest Client com porta parametrizada
+# Use um arquivo .env ou configure a variável no ambiente do Rest Client
+
+@host = localhost
+
+# Porta padrão, pode ser sobrescrita no arquivo .env ou no Rest Client
+@port = 8000
+
+# GET /products
+GET http://{{host}}:{{port}}/products
+Content-Type: application/json
+apikey: demo-key-123
+
+###
+
+# POST /products
+POST http://{{host}}:{{port}}/products
+Content-Type: application/json
+apikey: demo-key-123
+
+{
+    "name": "Notebook turbo",
+    "category_id": 1
+}
+
+###
+
+# GET /categories
+GET http://{{host}}:{{port}}/categories
+Content-Type: application/json
+apikey: demo-key-123
+
+###
+
+# POST /categories
+POST http://{{host}}:{{port}}/categories
+Content-Type: application/json
+apikey: demo-key-123
+
+{
+    "name": "Eletrônicos"
+}
